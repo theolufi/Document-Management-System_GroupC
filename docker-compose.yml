@@ -1,26 +1,43 @@
+version: '3.8'
+
 services:
   java_app:
-      container_name: java_app
-      image: demo/java_app:1.0.0
-      build: .
-      ports:
-        - 8081:8081
-      environment:
-        - DATABASE_URL=jdbc:postgresql://java_db:5432/postgres
-        - DATABASE_USERNAME=postgres
-        - DATABASE_PASSWORD=postgres
-      depends_on:
-        - java_db
+    container_name: java_app
+    image: demo/java_app:1.0.0
+    build: .  # Update this to the path of your backend
+    ports:
+      - "8081:8081"
+    environment:
+      - DATABASE_URL=jdbc:postgresql://java_db:5432/postgres
+      - DATABASE_USERNAME=postgres
+      - DATABASE_PASSWORD=postgres
+    depends_on:
+      - java_db
+
   java_db:
     container_name: java_db
     image: postgres:12
     ports:
-      - 5432:5432
+      - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  frontend:
+    container_name: frontend
+    build:
+      context: C:\Users\Lenovo\frontend  # Update this to the path of your frontend
+      dockerfile: C:\Users\Lenovo\frontend\src\Dockerfile  # Ensure this is the name of your Dockerfile
+    ports:
+      - "3000:3000"  # Expose frontend port
+    environment:
+      - CHOKIDAR_USEPOLLING=true  # Optional for live reloading
+      - NODE_OPTIONS=--openssl-legacy-provider
+    depends_on:
+      - java_app  # Ensure the backend is running before the frontend
+
 volumes:
   pgdata: {}
