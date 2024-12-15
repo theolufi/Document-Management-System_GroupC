@@ -1,0 +1,18 @@
+FROM python:3.8
+
+WORKDIR /app
+
+COPY requirements.txt /app/
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+RUN apt update
+RUN apt install poppler-utils -y
+RUN apt install tesseract-ocr -y
+RUN apt install tesseract-ocr-eng -y
+RUN apt install tesseract-ocr-deu -y
+
+
+COPY * /app/
+
+CMD ["python", "-u","ocr.py"]

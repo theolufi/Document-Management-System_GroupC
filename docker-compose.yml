@@ -1,26 +1,94 @@
+version: '3'
+
 services:
-  java_app:
-      container_name: java_app
-      image: demo/java_app:1.0.0
-      build: .
-      ports:
-        - 8081:8081
-      environment:
-        - DATABASE_URL=jdbc:postgresql://java_db:5432/postgres
-        - DATABASE_USERNAME=postgres
-        - DATABASE_PASSWORD=postgres
-      depends_on:
-        - java_db
-  java_db:
-    container_name: java_db
-    image: postgres:12
+  spring-app:
+    build:
+      context: .
+      dockerfile: Dockerfile-Spring
+    container_name: paperless-spring
     ports:
-      - 5432:5432
+      - "8081:8081"
+    expose:
+      - "8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      elasticsearch:
+        condition: service_started
+  nginx:
+    build:
+      context: ./paperless-ngx-ui
+      dockerfile: Dockerfile-UI
+    container_name: paperless-ui
+    ports:
+      - "80:80"
+    expose:
+      - "80"
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    expose:
+      - "5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-volumes:
-  pgdata: {}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=paperless
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+  minio:
+    image: minio/minio
+    container_name: paperless-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ACCESS_KEY=paperless
+      - MINIO_SECRET_KEY=paperless
+      - MINIO_CONSOLE_ADDRESS=:9001
+    command: server /data
+  rabbitmq:
+    image: rabbitmq:3.13.0-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=paperless
+      - RABBITMQ_DEFAULT_PASS=paperless
+  ocr:
+    build:
+      context: ./ocr
+      dockerfile: Dockerfile-OCR
+    container_name: paperless-ocr
+    depends_on:
+      minio:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_started
+  elasticsearch:
+    image: elasticsearch:8.12.2
+    container_name: paperless-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "xpack.security.enabled=false"
+      - "xpack.security.enrollment.enabled=false"
+      - ELASTIC_PASSWORD=paperless
+    ports:
+      - 9200:9200
+      - 9300:9300

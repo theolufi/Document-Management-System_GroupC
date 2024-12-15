@@ -1,0 +1,14 @@
+#FROM openjdk:19-alpine
+FROM maven:3.9.5-amazoncorretto-21
+
+WORKDIR /app
+
+COPY src /app/src/
+COPY pom.xml /app/pom.xml
+
+RUN mvn clean package
+
+EXPOSE 8081
+
+# Run the jar file
+CMD ["java", "-jar", "target/paperless-spring-1.0.jar"]
